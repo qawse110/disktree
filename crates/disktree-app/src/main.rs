@@ -48,37 +48,37 @@ struct Args {
 }
 
 const USAGE: &str = "\
-disktree — a treemap of what is using your disk
+disktree — 用树状图看清磁盘空间被什么占用了
 
-usage: disktree [OPTIONS] [PATH]
+用法：disktree [选项] [路径]
 
-arguments:
-  PATH              directory to scan (default: the home directory)
+参数：
+  PATH              要扫描的目录（默认：主目录）
 
-The window opens on a treemap of the root, largest first. Space marks the
-selected tile, Enter opens it, c reviews the marked list, ? lists every key.
+窗口以树状图显示扫描的根目录，最大的排在最前。空格键标记选中的图块，
+回车进入，c 键复核已标记列表，? 键列出所有按键。
 
-options:
-  -a, --apparent-size   measure apparent length instead of allocated blocks
-  -l, --follow-links    follow symlinks
-  -H, --no-hidden       skip dotfiles and dot-directories
-  -D, --disk            scan the whole disk the home directory is on
+选项：
+  -a, --apparent-size   按表观长度而非已分配块计量
+  -l, --follow-links    跟随符号链接
+  -H, --no-hidden       跳过点文件和点目录
+  -D, --disk            扫描主目录所在的整个磁盘
   -X, --cross-filesystems
-                        also measure other disks, network shares and pseudo
-                        filesystems mounted below PATH (off by default)
-  -d, --depth N         how many levels to draw at once (1-6, default 3)
+                        同时计量 PATH 下挂载的其他磁盘、网络共享和伪文件
+                        系统（默认关闭）
+  -d, --depth N         一次绘制的层数（1-6，默认 3）
       --power-efficiency PRESET
-                        miser, balanced (default), aggressive, drain-my-battery
-      --scan-threads N  fixed scan workers, capped by available CPU count
+                        省电、均衡（默认）、激进、尽情耗电
+      --scan-threads N  固定扫描线程数，以可用 CPU 数为上限
       --adaptive-threads
-                        experimental adaptive admission (opt-in)
-      --fixed-threads   disable adaptive admission and CPU governor
+                        实验性的自适应准入（需显式开启）
+      --fixed-threads   关闭自适应准入和 CPU 调节
       --thread-throughput-percent N
-                        retain this percent of sampled initial throughput (80)
+                        保留初始吞吐采样值的百分比（80）
       --thread-system-cpu-percent N
-                        best-effort host CPU budget; 0 disables it (80)
-      --metric files    rank by file count instead of bytes
-  -h, --help            show this help
+                        尽力遵守的主机 CPU 占用上限；0 表示不限制（80）
+      --metric files    按文件数而非字节数排序
+  -h, --help            显示此帮助
 ";
 
 fn main() -> Result<()> {
@@ -97,7 +97,7 @@ fn run() -> Result<()> {
             |path| power::load(&path),
         )
         .unwrap_or_else(|error| {
-            eprintln!("Cannot load Power Efficiency: {error}; using Balanced");
+            eprintln!("无法加载电源效率设置：{error}；改用均衡模式");
             power::PowerEfficiency::default()
         });
     let args = parse_args_with_power(std::env::args_os().skip(1), saved)?;
@@ -245,30 +245,29 @@ fn parse_args_with_power(
             "-X" | "--cross-filesystems" => options.one_filesystem = false,
             "-D" | "--disk" => disk = true,
             "-d" | "--depth" => {
-                let value = text(args.next(), "--depth needs a number")?;
-                depth = value.parse().context("--depth needs a number")?;
+                let value = text(args.next(), "--depth 需要一个数字")?;
+                depth = value.parse().context("--depth 需要一个数字")?;
                 anyhow::ensure!(
                     (1..=6).contains(&depth),
-                    "--depth must be 1 to 6"
+                    "--depth 必须是 1 到 6"
                 );
             }
             "--power-efficiency" => {
                 let value =
-                    text(args.next(), "--power-efficiency needs a preset")?;
+                    text(args.next(), "--power-efficiency 需要一个预设值")?;
                 let preset = power::PowerEfficiency::parse(&value)
-                    .context("unknown Power Efficiency preset")?;
+                    .context("未知的电源效率预设值")?;
                 options.threads = preset.policy(power::cpu_threads());
                 power = Some(preset);
             }
             "--scan-threads" => {
                 power = None;
-                let value = text(args.next(), "--scan-threads needs a number")?;
-                options.threads.max_threads = value
-                    .parse()
-                    .context("--scan-threads needs a positive integer")?;
+                let value = text(args.next(), "--scan-threads 需要一个数字")?;
+                options.threads.max_threads =
+                    value.parse().context("--scan-threads 需要正整数")?;
                 anyhow::ensure!(
                     options.threads.max_threads > 0,
-                    "--scan-threads must be positive"
+                    "--scan-threads 必须为正数"
                 );
             }
             "--fixed-threads" => {
@@ -283,14 +282,14 @@ fn parse_args_with_power(
             "--thread-throughput-percent" => {
                 let value = text(
                     args.next(),
-                    "--thread-throughput-percent needs a number",
+                    "--thread-throughput-percent 需要一个数字",
                 )?;
                 let percent: u8 = value
                     .parse()
-                    .context("throughput percent must be 1 to 100")?;
+                    .context("吞吐率百分比必须在 1 到 100 之间")?;
                 anyhow::ensure!(
                     (1..=100).contains(&percent),
-                    "throughput percent must be 1 to 100"
+                    "吞吐率百分比必须在 1 到 100 之间"
                 );
                 options.threads.retained_throughput =
                     f64::from(percent) / 100.0;
@@ -298,21 +297,24 @@ fn parse_args_with_power(
             "--thread-system-cpu-percent" => {
                 let value = text(
                     args.next(),
-                    "--thread-system-cpu-percent needs a number",
+                    "--thread-system-cpu-percent 需要一个数字",
                 )?;
                 let percent: u8 =
-                    value.parse().context("CPU percent must be 0 to 100")?;
-                anyhow::ensure!(percent <= 100, "CPU percent must be 0 to 100");
+                    value.parse().context("CPU 百分比必须在 0 到 100 之间")?;
+                anyhow::ensure!(
+                    percent <= 100,
+                    "CPU 百分比必须在 0 到 100 之间"
+                );
                 options.threads.system_cpu_limit =
                     (percent > 0).then(|| f64::from(percent) / 100.0);
             }
             "--metric" => {
-                let value = text(args.next(), "--metric needs a value")?;
+                let value = text(args.next(), "--metric 需要一个取值")?;
                 options.metric = match value.as_str() {
                     "files" => disktree_core::tree::Metric::Files,
                     "bytes" | "size" => disktree_core::tree::Metric::Bytes,
                     other => anyhow::bail!(
-                        "unknown metric {other}; try bytes or files"
+                        "未知的计量方式 {other}；可用 bytes 或 files"
                     ),
                 };
             }
@@ -320,19 +322,16 @@ fn parse_args_with_power(
             // app from Finder until OS X 10.9, and some launchers still do.
             other if other.starts_with("-psn_") => {}
             other if other.starts_with('-') => {
-                anyhow::bail!("unknown option {other}\n\n{USAGE}");
+                anyhow::bail!("未知选项 {other}\n\n{USAGE}");
             }
             _ => {
-                anyhow::ensure!(root.is_none(), "only one path can be scanned");
+                anyhow::ensure!(root.is_none(), "只能扫描一个路径");
                 root = Some(PathBuf::from(arg));
             }
         }
     }
 
-    anyhow::ensure!(
-        !(disk && root.is_some()),
-        "--disk and a PATH cannot be combined"
-    );
+    anyhow::ensure!(!(disk && root.is_some()), "--disk 不能与 PATH 同时使用");
     let home = std::env::home_dir();
     let root = match root {
         _ if disk => home
@@ -340,7 +339,7 @@ fn parse_args_with_power(
             .and_then(disktree_core::space::volume_root_for)
             .unwrap_or_else(|| PathBuf::from("/")),
         Some(root) => root,
-        None => home.context("no path given and no home directory")?,
+        None => home.context("没有给出路径，也找不到主目录")?,
     };
     // Store the depth as the initial view setting rather than a scan option: it
     // is a display choice the run-time `[` and `]` keys also change.
@@ -349,8 +348,8 @@ fn parse_args_with_power(
     // form nothing else is written in.
     let root = dunce::canonicalize(&root).unwrap_or(root);
     let metadata = std::fs::metadata(&root)
-        .with_context(|| format!("cannot read {}", root.display()))?;
-    anyhow::ensure!(metadata.is_dir(), "{} is not a directory", root.display());
+        .with_context(|| format!("无法读取 {}", root.display()))?;
+    anyhow::ensure!(metadata.is_dir(), "{} 不是目录", root.display());
 
     Ok(Args {
         root,
@@ -366,27 +365,51 @@ fn parse_args_with_power(
 mod console {
     #![allow(
         unsafe_code,
-        reason = "two Win32 calls that take no pointers to get wrong"
+        reason = "a few Win32 calls that take no pointers to get wrong"
     )]
 
+    use std::sync::atomic::{AtomicU32, Ordering};
+
     use windows_sys::Win32::System::Console::{
-        ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole,
+        ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole, GetConsoleOutputCP,
+        SetConsoleOutputCP,
     };
 
-    /// Borrow the parent's console so printed text reaches it. Does
-    /// nothing when started from Explorer, which has none.
+    /// UTF-8. A Chinese console defaults to code page 936, which would
+    /// turn the translated output into mojibake: the text is written as
+    /// UTF-8 bytes either way.
+    const UTF8_CODE_PAGE: u32 = 65_001;
+
+    /// The code page found on attach, restored on detach. Zero while no
+    /// console is borrowed.
+    static SAVED_CODE_PAGE: AtomicU32 = AtomicU32::new(0);
+
+    /// Borrow the parent's console so printed text reaches it, and put
+    /// that console into UTF-8 for as long as we hold it. Does nothing
+    /// when started from Explorer, which has none.
     pub fn attach() {
         // SAFETY: takes a process id by value, and failure only means
         // there was no console to attach to.
         unsafe {
-            AttachConsole(ATTACH_PARENT_PROCESS);
+            if AttachConsole(ATTACH_PARENT_PROCESS) != 0 {
+                let previous = GetConsoleOutputCP();
+                if previous != 0 && previous != UTF8_CODE_PAGE {
+                    SAVED_CODE_PAGE.store(previous, Ordering::Relaxed);
+                    SetConsoleOutputCP(UTF8_CODE_PAGE);
+                }
+            }
         }
     }
 
-    /// Let go of it again, so the shell redraws its prompt.
+    /// Put the code page back and let go of the console again, so the
+    /// shell redraws its prompt as it was.
     pub fn detach() {
         // SAFETY: no arguments; a process without a console is left as is.
         unsafe {
+            let previous = SAVED_CODE_PAGE.swap(0, Ordering::Relaxed);
+            if previous != 0 {
+                SetConsoleOutputCP(previous);
+            }
             FreeConsole();
         }
     }

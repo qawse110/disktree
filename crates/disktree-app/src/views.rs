@@ -135,16 +135,15 @@ fn volumes_dialog(
         .flex_col()
         .gap(space::XS);
     if app.volumes_loading {
-        rows = rows.child(dialog_description("Looking for volumes…", cx));
+        rows = rows.child(dialog_description("正在查找卷…", cx));
     } else if app.volumes.is_empty() {
-        rows = rows
-            .child(dialog_description("No other volume could be read.", cx));
+        rows = rows.child(dialog_description("无法读取其他卷。", cx));
     }
     for (index, volume) in app.volumes.iter().enumerate() {
         let highlighted = index == app.volume_highlight;
         let free = volume.space.map_or_else(
-            || "unknown free".to_string(),
-            |space| format!("{} free", human_bytes(space.available)),
+            || "可用空间未知".to_string(),
+            |space| format!("可用 {}", human_bytes(space.available)),
         );
         let label = match &volume.device {
             Some(device) => format!(
@@ -177,9 +176,9 @@ fn volumes_dialog(
         );
     }
     let popup = dialog_popup(cx)
-        .child(dialog_title("Scan a volume", cx))
+        .child(dialog_title("扫描卷", cx))
         .child(dialog_description(
-            "Up and down moves, Enter scans it, Escape stays here.",
+            "上下键移动，回车扫描，Esc 留在原处。",
             cx,
         ))
         .child(rows);
@@ -259,14 +258,11 @@ fn delete_dialog(
 ) -> impl IntoElement {
     let plan = app.plan();
     let title = match plan.targets.as_slice() {
-        [only] => format!(
-            "Delete \u{201c}{}\u{201d} permanently?",
-            short_name(&only.path)
-        ),
-        targets => format!("Delete {} items permanently?", targets.len()),
+        [only] => format!("永久删除“{}”？", short_name(&only.path)),
+        targets => format!("永久删除 {} 项？", targets.len()),
     };
     let body = format!(
-        "This frees {}. Deleted files can\u{2019}t be recovered; move them to the trash if you might need them again.",
+        "可释放 {}。删除的文件无法恢复；如果以后可能还要，请改用移入回收站。",
         human_bytes(plan.bytes())
     );
     let confirm = cx.entity().downgrade();
@@ -279,7 +275,7 @@ fn delete_dialog(
         .child(
             dialog_button(
                 "delete-cancel",
-                "Cancel",
+                "取消",
                 ButtonVariant::Secondary,
                 cx,
             )
@@ -289,16 +285,11 @@ fn delete_dialog(
             })),
         )
         .child(
-            dialog_button(
-                "delete-confirm",
-                "Delete",
-                ButtonVariant::Danger,
-                cx,
-            )
-            .on_click(cx.listener(|this, _, window, cx| {
-                this.confirm_delete(cx);
-                this.apply_focus(window, cx);
-            })),
+            dialog_button("delete-confirm", "删除", ButtonVariant::Danger, cx)
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.confirm_delete(cx);
+                    this.apply_focus(window, cx);
+                })),
         );
     let popup = dialog_popup(cx)
         .child(dialog_title(title, cx))
@@ -516,7 +507,7 @@ fn trail(app: &Disktree, theme: &Theme, cx: &Context<'_, Disktree>) -> Div {
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.widen_to(path.clone(), cx);
                         })),
-                    "Scan from here · what is below is reused",
+                    "从这里扫描 · 其下内容会被复用",
                 )
                 .into_any_element()
             }
@@ -666,7 +657,7 @@ fn sibling_menu(
                 .py(space::XS)
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary.opacity(0.8))
-                .child(format!("Siblings in {parent_name}")),
+                .child(format!("{parent_name} 中的同级项")),
         );
     for (row_index, row) in rows.into_iter().enumerate() {
         let current =
@@ -735,7 +726,7 @@ fn sibling_menu(
                 .py(space::XS)
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary.opacity(0.7))
-                .child(format!("+{more} smaller")),
+                .child(format!("另有 {more} 个更小项")),
         );
     }
     panel
@@ -798,9 +789,9 @@ fn view_settings(
         button_group(
             "mode",
             vec![
-                ChoiceItem::new("size", "Size"),
-                ChoiceItem::new("files", "Files"),
-                ChoiceItem::new("age", "Age"),
+                ChoiceItem::new("size", "大小"),
+                ChoiceItem::new("files", "文件数"),
+                ChoiceItem::new("age", "时间"),
             ],
             Some(app.mode_index()),
             move |index, window, cx| {
@@ -826,36 +817,26 @@ fn view_settings(
     let hidden = {
         let entity = entity.clone();
         let focus = focus.clone();
-        checkbox(
-            "hidden",
-            "Hidden files",
-            check(app.options.include_hidden),
-            cx,
-        )
-        .tab_stop(false)
-        .on_change(move |_, _, window, cx| {
-            let _ = entity.update(cx, |this, cx| {
-                this.options.include_hidden = !this.options.include_hidden;
-                this.start_scan(cx);
-            });
-            window.focus(&focus, cx);
-        })
+        checkbox("hidden", "隐藏文件", check(app.options.include_hidden), cx)
+            .tab_stop(false)
+            .on_change(move |_, _, window, cx| {
+                let _ = entity.update(cx, |this, cx| {
+                    this.options.include_hidden = !this.options.include_hidden;
+                    this.start_scan(cx);
+                });
+                window.focus(&focus, cx);
+            })
     };
     let apparent = {
-        checkbox(
-            "apparent",
-            "Apparent size",
-            check(app.options.apparent_size),
-            cx,
-        )
-        .tab_stop(false)
-        .on_change(move |_, _, window, cx| {
-            let _ = entity.update(cx, |this, cx| {
-                this.options.apparent_size = !this.options.apparent_size;
-                this.start_scan(cx);
-            });
-            window.focus(&focus, cx);
-        })
+        checkbox("apparent", "表观大小", check(app.options.apparent_size), cx)
+            .tab_stop(false)
+            .on_change(move |_, _, window, cx| {
+                let _ = entity.update(cx, |this, cx| {
+                    this.options.apparent_size = !this.options.apparent_size;
+                    this.start_scan(cx);
+                });
+                window.focus(&focus, cx);
+            })
     };
 
     let theme = cx.omarchy().clone();
@@ -963,11 +944,11 @@ fn view_settings(
                     .px(space::SM)
                     .text_size(text::BODY)
                     .text_color(theme.foreground)
-                    .child(format!("Depth {depth}")),
+                    .child(format!("深度 {depth}")),
             )
             .child(stepper("depth-less", "\u{2212}", -1, cx))
             .child(stepper("depth-more", "+", 1, cx)),
-        "Levels drawn at once \u{00b7} [ and ]",
+        "一次绘制的层级数 · [ 和 ]",
     );
 
     div()
@@ -990,12 +971,12 @@ fn view_settings(
 /// and 580, 18 workers 137 s and 1,314. Elsewhere the shape is expected, not
 /// measured, so it gives no numbers.
 const POWER_TRADEOFF: &str = if cfg!(target_os = "macos") {
-    "Up to about 8 workers a scan finishes sooner: a whole drive took a \
-     third less time with 8 than with Balanced. Past that it is no faster, \
-     but uses over twice the CPU and runs the fans at full speed."
+    "线程数增加到 8 个左右之前，扫描会明显更快：整个驱动器用 8 个线程\
+     比均衡模式少花约三分之一的时间。再多并不会更快，反而会占用两倍\
+     以上的 CPU，让风扇满速运转。"
 } else {
-    "More workers finish a scan sooner only up to a point. Past it they \
-     use more CPU for no gain, and can run the fans at full speed."
+    "线程越多扫描越快，但只快到一个临界点。超过之后只会白占 CPU，\
+     还可能让风扇满速运转。"
 };
 
 /// How hard a scan may work, as a signal gauge framed like Depth; the
@@ -1008,7 +989,7 @@ fn power_efficiency(app: &Disktree, cx: &Context<'_, Disktree>) -> Div {
     let theme = cx.omarchy().clone();
     let cpus = app.cpu_threads;
     let threads = app.options.threads.max_threads.min(cpus);
-    let name = app.power_choice.map_or("Custom", PowerEfficiency::name);
+    let name = app.power_choice.map_or("自定义", PowerEfficiency::name);
     let open = app.power_menu.is_some();
     let trigger = div()
         .id("power-efficiency")
@@ -1024,7 +1005,7 @@ fn power_efficiency(app: &Disktree, cx: &Context<'_, Disktree>) -> Div {
         }))
         .child(
             button("power-toggle", "", ButtonVariant::Secondary, cx)
-                .accessibility_label(format!("Power Efficiency: {name}"))
+                .accessibility_label(format!("电源效率：{name}"))
                 .selected(open)
                 .tab_stop(false)
                 .child(widgets::signal(
@@ -1049,8 +1030,8 @@ fn power_efficiency(app: &Disktree, cx: &Context<'_, Disktree>) -> Div {
         with_tooltip(
             trigger,
             format!(
-                "Power Efficiency: {name} \u{00b7} {} of {cpus} CPUs\n\
-                 {POWER_TRADEOFF}\nUsed from the next scan, and remembered.",
+                "电源效率：{name} · {}（共 {cpus} 个 CPU）\n\
+                 {POWER_TRADEOFF}\n下次扫描开始生效，并会被记住。",
                 power::workers(threads)
             ),
         )
@@ -1087,8 +1068,8 @@ fn power_efficiency(app: &Disktree, cx: &Context<'_, Disktree>) -> Div {
                 .py(space::XS)
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary.opacity(0.8))
-                .child("Scan workers")
-                .child(format!("{cpus} CPUs")),
+                .child("扫描线程")
+                .child(format!("{cpus} 个 CPU")),
         );
     for (index, preset) in PowerEfficiency::ALL.into_iter().enumerate() {
         let offered = preset.available(cpus);
@@ -1161,7 +1142,7 @@ fn power_efficiency(app: &Disktree, cx: &Context<'_, Disktree>) -> Div {
             let below = PowerEfficiency::ALL[index - 1].name();
             with_tooltip(
                 row.opacity(0.45),
-                format!("Same as {below} with {cpus} CPUs"),
+                format!("与{below}相同（{cpus} 个 CPU）"),
             )
         };
         menu = menu.child(row);
@@ -1224,13 +1205,13 @@ fn scan_totals(app: &Disktree, theme: &Theme) -> Div {
         .text_color(theme.secondary)
         .child(div().text_color(theme.foreground).child(human_bytes(bytes)))
         .child(format!(
-            "· {} files · {} dirs",
+            "· {} 个文件 · {} 个目录",
             widgets::human_count(files),
             widgets::human_count(dirs)
         ))
         .when(errors > 0, |this| {
             this.child(div().text_color(theme.warning).child(format!(
-                "· {} unreadable",
+                "· {} 个无法读取",
                 widgets::human_count(errors)
             )))
         })
@@ -1285,7 +1266,7 @@ fn legend(app: &Disktree, theme: &Theme, cx: &App) -> Div {
         .gap(space::MD)
         .min_w_0()
         .overflow_hidden()
-        .child(item(widgets::hatch_swatch(hatch, ground), "Reclaimable"))
+        .child(item(widgets::hatch_swatch(hatch, ground), "可回收"))
         .child(lane)
 }
 
@@ -1366,13 +1347,13 @@ fn selection_section(
         .flex()
         .flex_col()
         .gap(space::MD)
-        .child(widgets::eyebrow("Selection", cx));
+        .child(widgets::eyebrow("选中项", cx));
     let target = app.action_target().unwrap_or_else(|| app.crumbs.clone());
     let Some(node) = app.node_at(&target) else {
         return section.child(
             div()
                 .text_color(theme.secondary)
-                .child("Point at a tile or select one with the arrows"),
+                .child("指向一个图块，或用方向键选中一个"),
         );
     };
     let path = app.path_at(&target);
@@ -1426,7 +1407,7 @@ fn selection_section(
 
     let (number, unit) = match app.options.metric {
         Metric::Bytes => widgets::split_size(&human_bytes(node.bytes)),
-        Metric::Files => (widgets::human_count(node.files), "files".into()),
+        Metric::Files => (widgets::human_count(node.files), "文件".into()),
     };
     let share = node.bytes as f32 / root_value.max(1) as f32;
     let measure = div()
@@ -1448,8 +1429,8 @@ fn selection_section(
     {
         let value = match app.git.get(path) {
             Some(Some(state)) => state.summary(),
-            Some(None) => "not readable".to_string(),
-            None => "asking\u{2026}".to_string(),
+            Some(None) => "无法读取".to_string(),
+            None => "查询中…".to_string(),
         };
         let clean =
             matches!(app.git.get(path), Some(Some(state)) if state.is_clean());
@@ -1466,7 +1447,7 @@ fn selection_section(
                 format!("{} \u{00b7} {}", node.category.label(), reason.label())
             },
         );
-        widgets::figure("Kind", kind, theme.bright, cx)
+        widgets::figure("类型", kind, theme.bright, cx)
     };
     let grid = div()
         .flex()
@@ -1477,13 +1458,13 @@ fn selection_section(
                 .flex()
                 .flex_row()
                 .child(div().flex_1().min_w_0().child(widgets::figure(
-                    "Of scan",
+                    "占扫描总量",
                     widgets::percent(node.bytes, root_value),
                     theme.bright,
                     cx,
                 )))
                 .child(div().flex_1().min_w_0().child(widgets::figure(
-                    "Files",
+                    "文件数",
                     widgets::human_count(node.files),
                     theme.bright,
                     cx,
@@ -1494,7 +1475,7 @@ fn selection_section(
                 .flex()
                 .flex_row()
                 .child(div().flex_1().min_w_0().child(widgets::figure(
-                    "Last write",
+                    "最后修改",
                     widgets::ago(crate::state::now_seconds(), node.modified),
                     theme.bright,
                     cx,
@@ -1505,17 +1486,17 @@ fn selection_section(
     // Only states that change the decision earn a badge.
     let mut chips = Vec::new();
     if marked {
-        chips.push(widgets::chip("Marked", theme.danger, cx));
+        chips.push(widgets::chip("已标记", theme.danger, cx));
     }
     if let Some(ancestor) = &covered_by {
         chips.push(widgets::chip(
-            format!("Goes with {ancestor}"),
+            format!("随 {ancestor} 一起"),
             theme.danger,
             cx,
         ));
     }
     if node.read_error {
-        chips.push(widgets::chip("Partly unreadable", theme.warning, cx));
+        chips.push(widgets::chip("部分无法读取", theme.warning, cx));
     }
     let badges = (!chips.is_empty()).then(|| {
         div()
@@ -1533,7 +1514,7 @@ fn selection_section(
         if node.is_dir() {
             let crumbs = target.clone();
             actions = actions.child(
-                button("open", "Open", ButtonVariant::Outline, cx)
+                button("open", "打开", ButtonVariant::Outline, cx)
                     .tab_stop(false)
                     .flex_1()
                     .justify_center()
@@ -1551,10 +1532,10 @@ fn selection_section(
         let crumbs = target;
         let label = match &ancestor {
             Some(ancestor) if !marked => {
-                format!("Unmark {}", short_name(ancestor))
+                format!("取消标记 {}", short_name(ancestor))
             }
-            _ if marked => "Unmark".to_string(),
-            _ => "Mark for removal".to_string(),
+            _ if marked => "取消标记".to_string(),
+            _ => "标记删除".to_string(),
         };
         let mark = button("mark", label, ButtonVariant::Primary, cx)
             .tab_stop(false)
@@ -1608,7 +1589,7 @@ fn worth_section(
             .items_center()
             .justify_between()
             .pb(space::XS)
-            .child(widgets::eyebrow("Worth a look", cx))
+            .child(widgets::eyebrow("值得一看", cx))
             .when(total > 0, |this| {
                 this.child(
                     div()
@@ -1624,9 +1605,9 @@ fn worth_section(
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
                 .child(if app.tree().is_some() {
-                    "Nothing obviously disposable"
+                    "没有明显可清理的项"
                 } else {
-                    "Waiting for the scan"
+                    "等待扫描完成"
                 }),
         );
     }
@@ -1718,17 +1699,11 @@ fn insight_text(app: &Disktree, candidate: &Candidate) -> (String, String) {
         Finding::Reclaimable(reason) => (tail, reason.label().to_string()),
         Finding::Worktrees { count, oldest_days } => (
             tail,
-            format!(
-                "{count} worktree{} \u{00b7} oldest {oldest_days} d",
-                if *count == 1 { "" } else { "s" }
-            ),
+            format!("{count} 个 worktree · 最早的已 {oldest_days} 天"),
         ),
         Finding::StaleExperiments { count } => (
             format!("{tail} > {STALE_DAYS} days"),
-            format!(
-                "{count} experiment{} untouched",
-                if *count == 1 { "" } else { "s" }
-            ),
+            format!("{count} 个实验长期未动"),
         ),
     }
 }
@@ -1748,9 +1723,9 @@ fn marked_section(
         .justify_between()
         .child(widgets::eyebrow(
             if count == 0 {
-                "Marked".to_string()
+                "已标记".to_string()
             } else {
-                format!("Marked · {count}")
+                format!("已标记 · {count}")
             },
             cx,
         ))
@@ -1768,7 +1743,7 @@ fn marked_section(
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child("Space marks the tile you point at"),
+                .child("空格键标记指向的图块"),
         );
     }
     for (index, item) in app.marks.items().iter().take(MARKED_ROWS).enumerate()
@@ -1831,10 +1806,7 @@ fn marked_section(
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child(format!(
-                    "+{} more on the review screen",
-                    count - MARKED_ROWS
-                )),
+                .child(format!("复核界面还有 {} 项", count - MARKED_ROWS)),
         );
     }
     if !plan.covered.is_empty() || !plan.blocked.is_empty() {
@@ -1843,7 +1815,7 @@ fn marked_section(
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
                 .child(format!(
-                    "{} nested \u{00b7} {} kept back",
+                    "{} 个嵌套 · {} 个已保留",
                     plan.covered.len(),
                     plan.blocked.len()
                 )),
@@ -1891,7 +1863,6 @@ fn privacy_line(
     }
     let color = theme.warning;
     let errors = app.progress.errors;
-    let noun = if errors == 1 { "item" } else { "items" };
     Some(
         div()
             .flex()
@@ -1903,28 +1874,20 @@ fn privacy_line(
             .border_color(color.opacity(0.5))
             .text_size(text::CAPTION)
             .child(div().text_color(color).child(format!(
-                "macOS kept {} {noun} unreadable. Give disktree Full Disk \
-                 Access, or your terminal if you started it there, then \
-                 reopen it.",
+                "macOS 让 {} 项无法读取。请为 disktree 开启「完全磁盘访问权限」\
+                 （如果从终端启动，就给终端），然后重新打开。",
                 widgets::human_count(errors)
             )))
             .child(
-                button(
-                    "privacy",
-                    "Open Privacy Settings",
-                    ButtonVariant::Outline,
-                    cx,
-                )
-                .tab_stop(false)
-                .justify_center()
-                .on_click(cx.listener(
-                    |this, _, window, cx| {
+                button("privacy", "打开隐私设置", ButtonVariant::Outline, cx)
+                    .tab_stop(false)
+                    .justify_center()
+                    .on_click(cx.listener(|this, _, window, cx| {
                         cx.open_url(
                             disktree_core::access::FULL_DISK_ACCESS_SETTINGS,
                         );
                         window.focus(&this.focus, cx);
-                    },
-                )),
+                    })),
             ),
     )
 }
@@ -1944,21 +1907,18 @@ fn administrator_line(
     }
     let errors = app.progress.errors;
     let message = if errors > 0 {
-        let noun = if errors == 1 { "item" } else { "items" };
         // With `-l` the elevated copy walks too: only the reading is gained.
         let faster = if app.options.follow_links {
             ""
         } else {
-            ", and a whole drive several times faster"
+            "，整个驱动器还能快好几倍"
         };
         format!(
-            "Windows kept {} {noun} unreadable. Run as administrator to read \
-             them{faster}.",
+            "Windows 让 {} 项无法读取。以管理员身份运行即可读取它们{faster}。",
             widgets::human_count(errors)
         )
     } else if app.file_table && !app.options.follow_links {
-        "Run as administrator to read the whole drive from its file table: \
-         several times faster than this walk."
+        "以管理员身份运行即可从文件表读取整个驱动器：比当前遍历快好几倍。"
             .to_owned()
     } else {
         return None;
@@ -1967,7 +1927,7 @@ fn administrator_line(
     let message = if app.marks.is_empty() {
         message
     } else {
-        format!("{message} Restarting drops the marks.")
+        format!("{message} 重启后已标记的项会丢失。")
     };
     let color = theme.warning;
     Some(
@@ -1984,7 +1944,7 @@ fn administrator_line(
             .child(
                 button(
                     "administrator",
-                    "Restart as Administrator",
+                    "以管理员身份重启",
                     ButtonVariant::Outline,
                     cx,
                 )
@@ -2014,7 +1974,7 @@ fn disk_section(
         .flex_row()
         .items_center()
         .gap(space::SM)
-        .child(widgets::eyebrow("Disk", cx))
+        .child(widgets::eyebrow("磁盘", cx))
         .child(
             div()
                 .text_size(text::CAPTION)
@@ -2023,7 +1983,7 @@ fn disk_section(
         )
         .child(div().flex_1())
         .child(
-            button("volumes", "Volumes", ButtonVariant::Secondary, cx)
+            button("volumes", "卷", ButtonVariant::Secondary, cx)
                 .tab_stop(false)
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.open_volumes(cx);
@@ -2036,7 +1996,7 @@ fn disk_section(
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child("Free space is not available here"),
+                .child("此处无法获取可用空间"),
         );
     };
     let plan = app.plan();
@@ -2059,7 +2019,7 @@ fn disk_section(
             .child(widgets::measure(
                 number,
                 text::FIGURE,
-                format!("{unit} free"),
+                format!("可用 {unit}"),
                 text::BODY,
                 cx,
             ))
@@ -2075,7 +2035,7 @@ fn disk_section(
                         ))
                         .text_color(highlight)
                         .child(format!(
-                            "→ {} free",
+                            "→ 可用 {}",
                             human_bytes(after.available)
                         )),
                 )
@@ -2118,7 +2078,7 @@ fn disk_section(
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child(format!("not counted here: {left_out}")),
+                .child(format!("此处不计入：{left_out}")),
         );
     }
     section
@@ -2128,9 +2088,9 @@ fn disk_section(
                 .flex_row()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child(format!("{} used", human_bytes(space_info.used())))
+                .child(format!("已用 {}", human_bytes(space_info.used())))
                 .child(div().flex_1())
-                .child(format!("{} total", human_bytes(space_info.total))),
+                .child(format!("共 {}", human_bytes(space_info.total))),
         )
         .children(
             (!app.marks.is_empty())
@@ -2145,13 +2105,10 @@ fn disk_section(
 fn not_counted(plan: &Plan) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
     if plan.foreign() > 0 {
-        parts.push(format!("{} on other volumes", human_bytes(plan.foreign())));
+        parts.push(format!("其他卷上 {}", human_bytes(plan.foreign())));
     }
     if plan.unattributed() > 0 {
-        parts.push(format!(
-            "{} could not be placed",
-            human_bytes(plan.unattributed())
-        ));
+        parts.push(format!("{} 无法归属", human_bytes(plan.unattributed())));
     }
     (!parts.is_empty()).then(|| parts.join(", "))
 }
@@ -2197,7 +2154,7 @@ fn review_button(
                 .overflow_hidden()
                 .text_ellipsis()
                 .child(format!(
-                    "Review {count} marked · frees {}…",
+                    "复核 {count} 项已标记 · 可释放 {}…",
                     human_bytes(reclaiming)
                 )),
         )
@@ -2211,17 +2168,17 @@ fn review_button(
 fn key_bar(app: &Disktree, theme: &Theme, cx: &App) -> Div {
     // Most useful first, so a narrow window clips the least useful.
     let hints: [(&str, &str); 11] = [
-        ("space", "mark"),
-        ("enter", "open"),
-        ("\u{232b}", "up"),
-        ("c", "review"),
-        ("hjkl", "move"),
-        ("/", "filter"),
-        ("[ ]", "depth"),
-        ("t", "mode"),
-        ("0", "reset"),
-        ("v", "volumes"),
-        ("r", "rescan"),
+        ("space", "标记"),
+        ("enter", "打开"),
+        ("\u{232b}", "上一级"),
+        ("c", "复核"),
+        ("hjkl", "移动"),
+        ("/", "筛选"),
+        ("[ ]", "深度"),
+        ("t", "计量"),
+        ("0", "复位"),
+        ("v", "卷"),
+        ("r", "重新扫描"),
     ];
     let mut lane = div()
         .flex()
@@ -2256,13 +2213,13 @@ fn key_bar(app: &Disktree, theme: &Theme, cx: &App) -> Div {
     }
     let scan = if app.scan.is_some() {
         format!(
-            "scanning \u{00b7} {} entries \u{00b7} {}",
+            "扫描中 · {} 个条目 · {}",
             widgets::human_count(app.progress.files),
             human_bytes(app.progress.bytes)
         )
     } else if app.progress.cancelled {
         format!(
-            "scan cancelled \u{00b7} {} entries \u{00b7} r scans again",
+            "扫描已取消 · {} 个条目 · 按 r 重新扫描",
             widgets::human_count(app.progress.files)
         )
     } else {
@@ -2270,11 +2227,11 @@ fn key_bar(app: &Disktree, theme: &Theme, cx: &App) -> Div {
             format!(" \u{00b7} {:.1} s", time.as_secs_f32())
         });
         format!(
-            "scan {} entries{elapsed}",
+            "扫描 {} 个条目{elapsed}",
             widgets::human_count(app.progress.files)
         )
     };
-    row.child(widgets::hint("?", "all keys", cx).flex_shrink_0())
+    row.child(widgets::hint("?", "全部按键", cx).flex_shrink_0())
         .child(
             div()
                 .flex_shrink_0()
@@ -2314,9 +2271,9 @@ fn scanning_panel(
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme.bright)
                 .child(if cancelled {
-                    format!("Stopped reading {}", widgets::display_root(app))
+                    format!("已停止读取 {}", widgets::display_root(app))
                 } else {
-                    format!("Reading {}", widgets::display_root(app))
+                    format!("正在读取 {}", widgets::display_root(app))
                 }),
         )
         .child(
@@ -2325,14 +2282,14 @@ fn scanning_panel(
                 .flex_row()
                 .gap(space::XL)
                 .child(widgets::stat(
-                    "files",
+                    "文件",
                     widgets::human_count(progress.files),
                     cx,
                 ))
-                .child(widgets::stat("directories", widgets::human_count(progress.dirs), cx))
-                .child(widgets::stat("measured", human_bytes(progress.bytes), cx))
+                .child(widgets::stat("目录", widgets::human_count(progress.dirs), cx))
+                .child(widgets::stat("已测量", human_bytes(progress.bytes), cx))
                 .child(widgets::stat_colored(
-                    "unreadable",
+                    "无法读取",
                     widgets::human_count(progress.errors),
                     if progress.errors > 0 {
                         theme.warning
@@ -2360,20 +2317,20 @@ fn scanning_panel(
                 .text_size(text::BODY)
                 .text_color(theme.secondary)
                 .child(if cancelled {
-                    "Nothing is shown from a scan that did not finish."
+                    "未完成的扫描不会显示任何结果。"
                 } else {
-                    "Marking, zooming and the free-space meter all work as soon as it lands."
+                    "扫描一完成，标记、缩放和可用空间计量立即可用。"
                 }),
         )
         // A failed scan has nothing left to cancel either.
         .child(if app.scan.is_none() {
-            button("scan-again", "Scan again", ButtonVariant::Outline, cx)
+            button("scan-again", "重新扫描", ButtonVariant::Outline, cx)
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.start_scan(cx);
                     window.focus(&this.focus, cx);
                 }))
         } else {
-            button("cancel-scan", "Cancel", ButtonVariant::Outline, cx)
+            button("cancel-scan", "取消", ButtonVariant::Outline, cx)
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.cancel_scan(cx);
                     window.focus(&this.focus, cx);
@@ -2400,23 +2357,22 @@ fn find_field(app: &Disktree, theme: &Theme) -> Div {
     // and Escape will do with it.
     let (summary, hint) = match app.matches.as_deref() {
         _ if app.finding && app.matches.is_none() => {
-            ("searching…".to_string(), "")
+            ("搜索中…".to_string(), "")
         }
-        None => (String::new(), "type to filter"),
+        None => (String::new(), "输入以筛选"),
         Some(matches) if matches.count == 0 => {
-            ("no matches".to_string(), "esc clears")
+            ("没有匹配项".to_string(), "esc 清除")
         }
         Some(matches) => (
             format!(
-                "{} match{} · {}",
+                "{} 个匹配 · {}",
                 widgets::human_count(matches.count as u64),
-                if matches.count == 1 { "" } else { "es" },
                 human_bytes(matches.bytes)
             ),
             if app.filter_applied {
-                "esc clears"
+                "esc 清除"
             } else {
-                "enter shows only these"
+                "回车只显示这些"
             },
         ),
     };
@@ -2451,7 +2407,7 @@ fn find_field(app: &Disktree, theme: &Theme) -> Div {
         .child(if app.find.is_empty() {
             div()
                 .text_color(theme.secondary.opacity(0.7))
-                .child("Filter by name")
+                .child("按名称筛选")
         } else {
             div().text_color(theme.bright).child(app.find.clone())
         })
@@ -2539,7 +2495,7 @@ fn review(
             div()
                 .p(space::XXL)
                 .text_color(theme.secondary)
-                .child("Nothing is marked. Go back and mark what should go."),
+                .child("还没有标记任何项。返回并标记要删除的内容。"),
         );
     }
 
@@ -2568,7 +2524,7 @@ fn review(
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
                 .child(format!(
-                    "{} more are marked and will be removed too. Unmark them in the treemap.",
+                    "另有 {} 项已标记，也会被删除。可在树状图中取消标记。",
                     items.len() - LIST_LIMIT
                 )),
         );
@@ -2581,9 +2537,9 @@ fn review(
         .flex_1()
         .min_h_0()
         .child(screen_header(
-            "Review",
+            "复核",
             &format!(
-                "{} marked \u{00b7} {} to free",
+                "已标记 {} 项 · 可释放 {}",
                 app.marks.len(),
                 human_bytes(plan.bytes())
             ),
@@ -2661,9 +2617,11 @@ fn mark_row(
                         .child(path_text),
                 ),
         )
-        .children(covered.then(|| {
-            widgets::chip("Inside a marked directory", theme.secondary, cx)
-        }))
+        .children(
+            covered.then(|| {
+                widgets::chip("位于已标记目录内", theme.secondary, cx)
+            }),
+        )
         .children(
             blocked.map(|reason| widgets::chip(reason, theme.warning, cx)),
         )
@@ -2689,7 +2647,7 @@ fn mark_row(
         .child(
             button(
                 ElementId::Name(SharedString::from(format!("unmark-{index}"))),
-                "Unmark",
+                "取消标记",
                 ButtonVariant::Outline,
                 cx,
             )
@@ -2713,7 +2671,7 @@ fn review_summary(
     // The part of the saving that lands elsewhere, said rather than added to
     // this volume's projection, so the two numbers cannot be confused.
     let left_out = not_counted(plan)
-        .map(|left_out| widgets::row("Not counted here", left_out, cx));
+        .map(|left_out| widgets::row("此处不计入", left_out, cx));
     let trash = app.trash_backend.is_available();
 
     // One silhouette for one either-or choice, reversible option first.
@@ -2721,8 +2679,8 @@ fn review_summary(
     let mode = button_group(
         "removal-mode",
         vec![
-            ChoiceItem::new("trash", "Move to trash").disabled(!trash),
-            ChoiceItem::new("permanent", "Delete permanently"),
+            ChoiceItem::new("trash", "移到回收站").disabled(!trash),
+            ChoiceItem::new("permanent", "永久删除"),
         ],
         Some(usize::from(app.removal_mode == RemovalMode::Permanent)),
         move |index, _, cx| {
@@ -2740,12 +2698,11 @@ fn review_summary(
     );
 
     let explanation = match app.removal_mode {
-        RemovalMode::Trash => format!(
-            "Recoverable from the trash until it is emptied. Uses {}.",
-            app.trash_backend.label()
-        ),
+        RemovalMode::Trash => {
+            format!("清空回收站前都可恢复。使用{}。", app.trash_backend.label())
+        }
         RemovalMode::Permanent => {
-            "Deleted at once, like rm -rf. Nothing is recoverable.".to_string()
+            "立即删除，等同于 rm -rf。无法恢复。".to_string()
         }
     };
 
@@ -2764,7 +2721,7 @@ fn review_summary(
                 .flex()
                 .flex_col()
                 .gap(space::SM)
-                .child(widgets::section("What happens", cx))
+                .child(widgets::section("将会发生什么", cx))
                 .child(mode)
                 .child(
                     div()
@@ -2778,32 +2735,28 @@ fn review_summary(
                 .flex()
                 .flex_col()
                 .gap(space::SM)
-                .child(widgets::section("Totals", cx))
+                .child(widgets::section("合计", cx))
                 .child(widgets::row(
-                    "Marked",
+                    "已标记",
                     format!("{}", app.marks.len()),
                     cx,
                 ))
                 .child(widgets::row(
-                    "Acted on",
+                    "实际处理",
                     format!("{}", plan.targets.len()),
                     cx,
                 ))
                 .child(widgets::row(
-                    "Nested, go with a parent",
+                    "嵌套项，随父目录一起",
                     format!("{}", plan.covered.len()),
                     cx,
                 ))
                 .child(widgets::row(
-                    "Kept back",
+                    "已保留",
                     format!("{}", plan.blocked.len()),
                     cx,
                 ))
-                .child(widgets::row(
-                    "Space freed",
-                    human_bytes(plan.bytes()),
-                    cx,
-                ))
+                .child(widgets::row("释放空间", human_bytes(plan.bytes()), cx))
                 .children(left_out),
         );
 
@@ -2813,7 +2766,7 @@ fn review_summary(
                 .flex()
                 .flex_col()
                 .gap(space::SM)
-                .child(widgets::section("Volume", cx))
+                .child(widgets::section("卷", cx))
                 .child(widgets::space_meter(volume, reclaiming, cx)),
         );
     }
@@ -2837,7 +2790,7 @@ fn review_summary(
                 .flex()
                 .flex_col()
                 .gap(space::XS)
-                .child(widgets::section("Kept back", cx))
+                .child(widgets::section("已保留", cx))
                 .child(blocked),
         );
     }
@@ -2861,28 +2814,18 @@ fn export_controls(
         .justify_end()
         .gap(space::SM)
         .child(
-            button(
-                "save-list",
-                "Save list\u{2026}",
-                ButtonVariant::Secondary,
-                cx,
-            )
-            .disabled(plan.is_empty())
-            .on_click(cx.listener(|this, _, _, cx| {
-                this.save_delete_list(cx);
-            })),
+            button("save-list", "保存列表…", ButtonVariant::Secondary, cx)
+                .disabled(plan.is_empty())
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.save_delete_list(cx);
+                })),
         )
         .child(
-            button(
-                "copy-prompt",
-                "Copy as prompt",
-                ButtonVariant::Secondary,
-                cx,
-            )
-            .disabled(plan.is_empty())
-            .on_click(cx.listener(|this, _, _, cx| {
-                this.copy_agent_prompt(cx);
-            })),
+            button("copy-prompt", "复制为提示词", ButtonVariant::Secondary, cx)
+                .disabled(plan.is_empty())
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.copy_agent_prompt(cx);
+                })),
         )
 }
 
@@ -2895,16 +2838,13 @@ fn commit_controls(
     cx: &Context<'_, Disktree>,
 ) -> Div {
     let count = plan.targets.len();
-    let noun = if count == 1 { "item" } else { "items" };
     let (label, variant) = match app.removal_mode {
-        RemovalMode::Trash => (
-            format!("Move {count} {noun} to trash"),
-            ButtonVariant::Primary,
-        ),
-        RemovalMode::Permanent => (
-            format!("Delete {count} {noun}\u{2026}"),
-            ButtonVariant::Danger,
-        ),
+        RemovalMode::Trash => {
+            (format!("将 {count} 项移到回收站"), ButtonVariant::Primary)
+        }
+        RemovalMode::Permanent => {
+            (format!("删除 {count} 项…"), ButtonVariant::Danger)
+        }
     };
     let unavailable = plan.is_empty()
         || (app.removal_mode == RemovalMode::Trash
@@ -2916,7 +2856,7 @@ fn commit_controls(
         .justify_end()
         .gap(space::SM)
         .child(
-            button("back", "Back", ButtonVariant::Secondary, cx).on_click(
+            button("back", "返回", ButtonVariant::Secondary, cx).on_click(
                 cx.listener(|this, _, window, cx| {
                     this.screen = Screen::Explore;
                     cx.notify();
@@ -2936,8 +2876,8 @@ fn commit_controls(
 
 fn review_footer(app: &Disktree, theme: &Theme, cx: &App) -> Div {
     let commit = match app.removal_mode {
-        RemovalMode::Trash => "move to trash",
-        RemovalMode::Permanent => "delete\u{2026}",
+        RemovalMode::Trash => "移到回收站",
+        RemovalMode::Permanent => "删除…",
     };
     div()
         .flex()
@@ -2949,19 +2889,19 @@ fn review_footer(app: &Disktree, theme: &Theme, cx: &App) -> Div {
         .border_t_1()
         .border_color(theme.divider())
         .child(widgets::hint("enter", commit, cx))
-        .child(widgets::hint("m", "trash", cx))
-        .child(widgets::hint("p", "permanent", cx))
-        .child(widgets::hint("!", "unmark all", cx))
-        .child(widgets::hint("s", "save list", cx))
-        .child(widgets::hint("a", "copy as prompt", cx))
-        .child(widgets::hint("esc", "back", cx))
+        .child(widgets::hint("m", "回收站", cx))
+        .child(widgets::hint("p", "永久删除", cx))
+        .child(widgets::hint("!", "全部取消标记", cx))
+        .child(widgets::hint("s", "保存列表", cx))
+        .child(widgets::hint("a", "复制为提示词", cx))
+        .child(widgets::hint("esc", "返回", cx))
         .child(div().flex_1())
         .child(
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
                 .child(format!(
-                    "{} available",
+                    "可用 {}",
                     app.space.map_or_else(
                         || "?".into(),
                         |space| human_bytes(space.available)
@@ -3042,8 +2982,8 @@ fn running(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
         .flex_1()
         .min_h_0()
         .child(screen_header(
-            "Removing",
-            &format!("{} of {} done", done, summary.total),
+            "正在删除",
+            &format!("已完成 {} / {}", done, summary.total),
             &theme,
             cx,
         ))
@@ -3056,9 +2996,9 @@ fn running(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
                 .flex_1()
                 .min_h_0()
                 .child(widgets::meter_row(
-                    "progress",
+                    "进度",
                     format!(
-                        "{} removed · {} to free",
+                        "已删除 {} · 待释放 {}",
                         summary.removed,
                         human_bytes(summary.bytes)
                     ),
@@ -3085,7 +3025,7 @@ fn running(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
                 .py(space::SM)
                 .border_t_1()
                 .border_color(theme.divider())
-                .child(widgets::hint("esc", "stop after the current item", cx)),
+                .child(widgets::hint("esc", "当前项完成后停止", cx)),
         )
 }
 
@@ -3137,14 +3077,18 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
                 .flex_row()
                 .gap(space::XXL)
                 .child(widgets::stat_colored(
-                    "removed",
-                    format!("{} items", summary.removed),
+                    "已删除",
+                    format!("{} 项", summary.removed),
                     theme.success,
                     cx,
                 ))
-                .child(widgets::stat("bytes claimed", human_bytes(summary.bytes), cx))
+                .child(widgets::stat(
+                    "已回收字节",
+                    human_bytes(summary.bytes),
+                    cx,
+                ))
                 .child(widgets::stat_colored(
-                    "failed",
+                    "失败",
                     format!("{}", summary.failed),
                     if summary.failed > 0 {
                         theme.danger
@@ -3155,13 +3099,17 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
                 ))
                 .children(measured.map(|delta| {
                     widgets::stat_colored(
-                        "volume freed",
+                        "卷实际释放",
                         if delta >= 0 {
                             format!("+{}", human_bytes(delta.unsigned_abs()))
                         } else {
                             format!("-{}", human_bytes(delta.unsigned_abs()))
                         },
-                        if delta >= 0 { theme.success } else { theme.warning },
+                        if delta >= 0 {
+                            theme.success
+                        } else {
+                            theme.warning
+                        },
                         cx,
                     )
                 })),
@@ -3170,7 +3118,7 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
             div()
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
-                .child("The treemap is being re-scanned so the numbers on screen match the disk again."),
+                .child("正在重新扫描树状图，让屏幕上的数字与磁盘一致。"),
         );
 
     if let Some(space) = app.space {
@@ -3178,8 +3126,8 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
     }
     if app.scan.is_some() {
         body = body.child(widgets::meter_row(
-            "re-scanning",
-            format!("{} files", widgets::human_count(app.progress.files)),
+            "重新扫描中",
+            format!("{} 个文件", widgets::human_count(app.progress.files)),
             progress_estimate(app.progress.files),
             theme.accent,
             cx,
@@ -3188,7 +3136,7 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
     if summary.failed > 0 {
         body = body
             .child(separator(cx))
-            .child(widgets::section("what could not be removed", cx))
+            .child(widgets::section("未能删除的项", cx))
             .child(failures);
     }
 
@@ -3197,7 +3145,7 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
         .flex_col()
         .flex_1()
         .min_h_0()
-        .child(screen_header("Done", "removal finished", &theme, cx))
+        .child(screen_header("完成", "删除已结束", &theme, cx))
         .child(body)
         .child(
             div()
@@ -3211,14 +3159,14 @@ fn done(app: &Disktree, cx: &gpui_kit::Context<'_, Disktree>) -> Div {
                 .border_color(theme.divider())
                 .child(
                     // An acknowledgement: the result is already on screen.
-                    button("continue", "Done", ButtonVariant::Primary, cx)
+                    button("continue", "完成", ButtonVariant::Primary, cx)
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.screen = Screen::Explore;
                             cx.notify();
                             window.focus(&this.focus, cx);
                         })),
                 )
-                .child(widgets::hint("enter", "continue", cx)),
+                .child(widgets::hint("enter", "继续", cx)),
         )
 }
 
@@ -3329,9 +3277,9 @@ fn card_surface(cx: &gpui_kit::App) -> Div {
 /// at the pointer, over the button itself.
 fn history_card(app: &Disktree, back: bool, cx: &gpui_kit::App) -> Div {
     let (label, keys) = if back {
-        ("Back", "alt \u{2190} \u{00b7} side button")
+        ("返回", "alt \u{2190} · 鼠标侧键")
     } else {
-        ("Forward", "alt \u{2192} \u{00b7} side button")
+        ("前进", "alt \u{2192} · 鼠标侧键")
     };
     let card = app
         .history_target(back)
@@ -3350,9 +3298,9 @@ pub fn hover_tooltip(app: &Disktree, cx: &gpui_kit::App) -> Option<Div> {
     let crumbs = app.hovered.as_deref()?;
     let is_dir = app.node_at(crumbs)?.is_dir();
     let keys = if is_dir {
-        "space mark · enter open"
+        "空格 标记 · 回车 打开"
     } else {
-        "space mark"
+        "空格 标记"
     };
     node_card(app, crumbs, keys, cx)
 }
@@ -3441,7 +3389,7 @@ fn node_card(
                 .text_size(text::CAPTION)
                 .text_color(theme.secondary)
                 .child(format!(
-                    "{} files · {} dirs · {} direct",
+                    "{} 个文件 · {} 个目录 · {} 直接占用",
                     widgets::human_count(node.files),
                     widgets::human_count(
                         u64::from(node.dirs)
@@ -3453,15 +3401,14 @@ fn node_card(
 
     let mut badges = div().flex().flex_row().gap(space::XS).flex_wrap();
     if hidden {
-        badges = badges.child(widgets::chip("Hidden", theme.secondary, cx));
+        badges = badges.child(widgets::chip("隐藏", theme.secondary, cx));
     }
     if marked {
-        badges =
-            badges.child(widgets::chip("Marked for removal", theme.danger, cx));
+        badges = badges.child(widgets::chip("已标记删除", theme.danger, cx));
     }
     if let Some(ancestor) = covered {
         badges = badges.child(widgets::chip(
-            format!("Inside marked {ancestor}"),
+            format!("位于已标记的 {ancestor} 内"),
             theme.secondary,
             cx,
         ));
@@ -3500,56 +3447,50 @@ fn help_overlay(app: &Disktree, cx: &gpui_kit::App) -> Div {
     // Sentence case, and the tile a key acts on is always the one under the
     // pointer if the pointer moved last, else the keyboard selection.
     let rows = [
-        ("space / x", "Mark or unmark the tile you point at"),
-        (MODIFIER_CLICK, "Mark without moving the selection"),
-        ("enter", "Open that directory, at any depth"),
-        ("\u{232b} / esc", "Go up one directory"),
-        (
-            "alt \u{2190} / \u{2192}",
-            "Back or forward, as do the mouse's side buttons",
-        ),
+        ("space / x", "标记或取消标记指向的图块"),
+        (MODIFIER_CLICK, "标记但不移动选中项"),
+        ("enter", "进入该目录，不限层级"),
+        ("\u{232b} / esc", "回到上一级目录"),
+        ("alt \u{2190} / \u{2192}", "后退或前进，鼠标侧键同效"),
         (
             "\u{2190} \u{2191} \u{2193} \u{2192}",
-            "Move between tiles at this level",
+            "在同一层的图块间移动",
         ),
-        ("tab", "Next largest sibling"),
-        ("scroll", "Zoom toward a directory, then go into it"),
-        ("shift-scroll", "Pan the magnified view"),
-        ("[ / ]", "Draw fewer or more levels at once"),
-        ("- / = / 0", "Magnify, shrink, or reset the view"),
-        (MODIFIER_ZOOM, "Interface zoom"),
-        (
-            "/",
-            "Filter by name: only matches keep their colour; enter shows only them",
-        ),
-        ("c", "Review the marked list"),
-        ("t", "Size, files or age: what areas and colours say"),
-        ("r", "Scan again from the same root"),
-        ("esc", "Stop a scan in progress"),
-        ("v", "Scan another volume"),
-        (MODIFIER_OPEN, "Choose another directory to scan"),
-        ("g", "The whole disk; click any directory above to widen"),
-        ("d", "Disk usage or apparent size"),
-        ("i", "Include or skip hidden entries"),
-        ("p", "Show or hide the selection line"),
+        ("tab", "下一个更大的同级项"),
+        ("scroll", "朝某目录缩放，然后进入"),
+        ("shift-scroll", "平移放大后的视图"),
+        ("[ / ]", "一次绘制更少或更多层级"),
+        ("- / = / 0", "放大、缩小或复位视图"),
+        (MODIFIER_ZOOM, "界面缩放"),
+        ("/", "按名称筛选：只有匹配项保留颜色；回车只显示这些"),
+        ("c", "复核已标记列表"),
+        ("t", "大小、文件数或时间：决定面积与配色"),
+        ("r", "从同一根目录重新扫描"),
+        ("esc", "停止正在进行的扫描"),
+        ("v", "扫描另一个卷"),
+        (MODIFIER_OPEN, "选择另一个要扫描的目录"),
+        ("g", "整个磁盘；点击上方任一目录可扩大范围"),
+        ("d", "磁盘占用或表观大小"),
+        ("i", "包含或跳过隐藏项"),
+        ("p", "显示或隐藏选中信息栏"),
         (
             "o",
             if cfg!(target_os = "macos") {
-                "Show it in Finder"
+                "在访达中显示"
             } else if cfg!(windows) {
-                "Show it in File Explorer"
+                "在文件资源管理器中显示"
             } else {
-                "Show it in the file manager"
+                "在文件管理器中显示"
             },
         ),
-        ("q", "Quit"),
+        ("q", "退出"),
         ("", ""),
         (
-            "Review screen",
-            "m trash \u{00b7} p permanent \u{00b7} ! unmark all \u{00b7} s save list \u{00b7} a copy as prompt",
+            "复核界面",
+            "m 移到回收站 · p 永久删除 · ! 全部取消标记 · s 保存列表 · a 复制为提示词",
         ),
-        ("", "enter commits \u{00b7} esc goes back"),
-        ("", "A permanent deletion always asks first"),
+        ("", "回车执行 · esc 返回"),
+        ("", "永久删除总会先确认"),
     ];
 
     let mut keys = div().flex().flex_col().gap(space::SM);
@@ -3615,7 +3556,7 @@ fn help_overlay(app: &Disktree, cx: &gpui_kit::App) -> Div {
                                 .text_size(text::TITLE)
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(theme.bright)
-                                .child("Keyboard and mouse"),
+                                .child("键盘与鼠标"),
                         ),
                 )
                 .child(keys)
@@ -3624,7 +3565,7 @@ fn help_overlay(app: &Disktree, cx: &gpui_kit::App) -> Div {
                         .text_size(text::CAPTION)
                         .text_color(theme.secondary)
                         .child(format!(
-                            "? or esc closes \u{00b7} {} \u{00b7} {}",
+                            "? 或 esc 关闭 · {} · {}",
                             app.root_path.display(),
                             app.options.metric.label()
                         )),

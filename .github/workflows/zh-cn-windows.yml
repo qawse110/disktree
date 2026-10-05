@@ -1,0 +1,74 @@
+name: Windows x64 zh-CN build
+
+on:
+  push:
+    branches: [zh-cn]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check (compile only) or full (test, build, upload)"
+        type: string
+        default: full
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # The C runtime linked in, as the upstream release job does, so the exe
+  # also runs where the Visual C++ runtime was never installed.
+  RUSTFLAGS: -C target-feature=+crt-static
+
+jobs:
+  windows:
+    name: Build (Windows x86_64)
+    runs-on: windows-2025
+    steps:
+      - run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97"
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Compile check
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Tests
+        if: ${{ (inputs.mode || 'full') == 'full' }}
+        run: cargo xtask test
+
+      - name: Build release
+        if: ${{ (inputs.mode || 'full') == 'full' }}
+        run: cargo build --release --locked -p disktree-app
+
+      - name: Smoke (help, exit codes)
+        if: ${{ (inputs.mode || 'full') == 'full' }}
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path target/release/disktree.exe).Path
+          Write-Output "size: $((Get-Item $exe).Length) bytes"
+          $help = (& $exe --help 2>&1 | Out-String)
+          Write-Output "--- help ($($help.Length) chars) ---"
+          Write-Output $help
+          & cmd /c ""$exe" --depth 99 2>&1" | Out-String | Write-Output
+          Write-Output "bad-depth exit: $LASTEXITCODE"
+
+      - name: Package exe
+        if: ${{ (inputs.mode || 'full') == 'full' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/release/disktree.exe dist/disktree.exe
+          Write-Output "packaged: $((Get-Item dist/disktree.exe).Length) bytes"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ (inputs.mode || 'full') == 'full' }}
+        with:
+          name: disktree-windows-x86_64-zh
+          path: dist/disktree.exe
+          if-no-files-found: error
