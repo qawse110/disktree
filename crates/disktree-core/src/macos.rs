@@ -391,7 +391,7 @@ impl ReadDir {
 }
 
 fn malformed() -> io::Error {
-    io::Error::other("the kernel returned a malformed record")
+    io::Error::other("内核返回了格式错误的记录")
 }
 
 fn read_u32(bytes: &[u8], at: usize) -> io::Result<u32> {

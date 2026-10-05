@@ -338,8 +338,7 @@ impl Records {
         &self,
         offset: usize,
     ) -> io::Result<(Option<Entry>, Option<usize>)> {
-        let malformed =
-            || io::Error::other("the file system returned a malformed record");
+        let malformed = || io::Error::other("文件系统返回了格式错误的记录");
         let bytes = self.bytes();
         let header =
             bytes.get(offset..offset + NAME_AT).ok_or_else(malformed)?;
@@ -679,7 +678,7 @@ pub fn run_elevated(program: &Path, args: &[OsString]) -> io::Result<()> {
 /// for one mounted in a folder, `\\.\X:` would name the drive around it.
 pub fn flush_volume(path: &Path) -> io::Result<()> {
     let root = volume_root(path).ok_or_else(|| {
-        io::Error::new(io::ErrorKind::NotFound, "no volume holds the path")
+        io::Error::new(io::ErrorKind::NotFound, "没有卷包含该路径")
     })?;
     let letter = drive_letter(&root)
         .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
@@ -818,7 +817,7 @@ fn wide(path: &Path, directory: bool) -> io::Result<Vec<u16>> {
     if wide.contains(&0) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "a path cannot contain NUL",
+            "路径不能包含 NUL",
         ));
     }
     let separator =

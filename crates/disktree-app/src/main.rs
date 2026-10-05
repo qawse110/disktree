@@ -81,13 +81,23 @@ disktree — 用树状图看清磁盘空间被什么占用了
   -h, --help            显示此帮助
 ";
 
-fn main() -> Result<()> {
+fn main() {
     #[cfg(windows)]
     console::attach();
     let outcome = run();
     #[cfg(windows)]
     console::detach();
-    outcome
+    if let Err(error) = outcome {
+        // anyhow's own report prefixes the message with an English
+        // "Error:" and labels the cause chain in English too. The same
+        // information and the same exit code, in Chinese.
+        eprint!("错误：{error}");
+        for cause in error.chain().skip(1) {
+            eprint!("\n  {cause}");
+        }
+        eprintln!();
+        std::process::exit(1);
+    }
 }
 
 fn run() -> Result<()> {
@@ -112,7 +122,7 @@ fn run() -> Result<()> {
         && std::env::var_os("CMUX_SURFACE_ID").is_some()
         && std::env::var_os("DISKTREE_CMUX_DETACHED").is_none()
     {
-        Command::new(std::env::current_exe().context("find disktree")?)
+        Command::new(std::env::current_exe().context("找不到 disktree")?)
             .args(std::env::args_os().skip(1))
             .env("DISKTREE_CMUX_DETACHED", "1")
             .stdin(Stdio::null())
@@ -121,7 +131,7 @@ fn run() -> Result<()> {
             // Zero makes the child the leader of a new process group.
             .process_group(0)
             .spawn()
-            .context("start disktree")?;
+            .context("无法启动 disktree")?;
         return Ok(());
     }
 

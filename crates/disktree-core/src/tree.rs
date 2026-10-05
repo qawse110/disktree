@@ -39,8 +39,8 @@ pub enum Metric {
 impl Metric {
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Bytes => "size",
-            Self::Files => "files",
+            Self::Bytes => "大小",
+            Self::Files => "文件数",
         }
     }
 

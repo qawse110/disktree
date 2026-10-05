@@ -4,11 +4,6 @@ on:
   push:
     branches: [zh-cn]
   workflow_dispatch:
-    inputs:
-      mode:
-        description: "check (compile only) or full (test, build, upload)"
-        type: string
-        default: full
 
 permissions:
   contents: read
@@ -35,31 +30,53 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Compile check
-        run: cargo check --workspace --all-targets --locked
-
       - name: Tests
-        if: ${{ (inputs.mode || 'full') == 'full' }}
         run: cargo xtask test
 
+      - name: Lint
+        run: cargo xtask fmt
+
       - name: Build release
-        if: ${{ (inputs.mode || 'full') == 'full' }}
         run: cargo build --release --locked -p disktree-app
 
-      - name: Smoke (help, exit codes)
-        if: ${{ (inputs.mode || 'full') == 'full' }}
+      - name: Smoke - help is Chinese and keeps every flag
         shell: pwsh
         run: |
           $exe = (Resolve-Path target/release/disktree.exe).Path
-          Write-Output "size: $((Get-Item $exe).Length) bytes"
-          $help = (& $exe --help 2>&1 | Out-String)
-          Write-Output "--- help ($($help.Length) chars) ---"
+          Write-Output "exe: $((Get-Item $exe).Length) bytes"
+
+          $helpFile = Join-Path $PWD 'help.txt'
+          $helpErr = Join-Path $PWD 'help.err.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList '--help' -NoNewWindow -Wait -PassThru -RedirectStandardOutput $helpFile -RedirectStandardError $helpErr
+          $help = [IO.File]::ReadAllText($helpFile, [Text.Encoding]::UTF8)
+          Write-Output "--- help (exit $($p.ExitCode), $($help.Length) chars) ---"
           Write-Output $help
-          & cmd /c ""$exe" --depth 99 2>&1" | Out-String | Write-Output
-          Write-Output "bad-depth exit: $LASTEXITCODE"
+          if ($p.ExitCode -ne 0) { throw "help exited $($p.ExitCode)" }
+          if ($help -notmatch '用法') { throw "help has no Chinese usage line" }
+          $flags = @('--apparent-size','--follow-links','--no-hidden','--disk','--cross-filesystems','--depth','--power-efficiency','--scan-threads','--adaptive-threads','--fixed-threads','--thread-throughput-percent','--thread-system-cpu-percent','--metric','--help')
+          foreach ($flag in $flags) {
+            if ($help -notmatch [regex]::Escape($flag)) { throw "flag missing from help: $flag" }
+          }
+
+          $deep = Start-Process -FilePath $exe -ArgumentList '--depth','99' -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $PWD 'd.out') -RedirectStandardError (Join-Path $PWD 'd.err')
+          $deepErr = [IO.File]::ReadAllText((Join-Path $PWD 'd.err'), [Text.Encoding]::UTF8)
+          Write-Output "bad depth exit=$($deep.ExitCode) stderr=$deepErr"
+          if ($deep.ExitCode -ne 1) { throw "bad depth exited $($deep.ExitCode), expected 1" }
+          if ($deepErr -notmatch '错误') { throw "bad depth error is not Chinese: $deepErr" }
+
+          $unk = Start-Process -FilePath $exe -ArgumentList '--nope' -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $PWD 'u.out') -RedirectStandardError (Join-Path $PWD 'u.err')
+          $unkErr = [IO.File]::ReadAllText((Join-Path $PWD 'u.err'), [Text.Encoding]::UTF8)
+          Write-Output "unknown option exit=$($unk.ExitCode) stderr=$($unkErr.Substring(0, [Math]::Min(80, $unkErr.Length)))"
+          if ($unk.ExitCode -ne 1) { throw "unknown option exited $($unk.ExitCode), expected 1" }
+          if ($unkErr -notmatch '错误') { throw "unknown option error is not Chinese" }
+
+          $missing = Start-Process -FilePath $exe -ArgumentList 'Z:\definitely\not\here' -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $PWD 'm.out') -RedirectStandardError (Join-Path $PWD 'm.err')
+          $missErr = [IO.File]::ReadAllText((Join-Path $PWD 'm.err'), [Text.Encoding]::UTF8)
+          Write-Output "missing path exit=$($missing.ExitCode) stderr=$missErr"
+          if ($missing.ExitCode -ne 1) { throw "missing path exited $($missing.ExitCode), expected 1" }
+          if ($missErr -notmatch '错误') { throw "missing path error is not Chinese" }
 
       - name: Package exe
-        if: ${{ (inputs.mode || 'full') == 'full' }}
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
@@ -67,7 +84,6 @@ jobs:
           Write-Output "packaged: $((Get-Item dist/disktree.exe).Length) bytes"
 
       - uses: actions/upload-artifact@v4
-        if: ${{ (inputs.mode || 'full') == 'full' }}
         with:
           name: disktree-windows-x86_64-zh
           path: dist/disktree.exe

@@ -56,15 +56,15 @@ impl Category {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Code => "Code",
-            Self::AgentScratch => "Agent scratch",
-            Self::Toolchain => "Toolchains",
-            Self::Synced => "Synced",
-            Self::Git => "Git",
-            Self::Media => "Media",
-            Self::Documents => "Documents",
-            Self::Cache => "Cache",
-            Self::Other => "Other",
+            Self::Code => "代码",
+            Self::AgentScratch => "智能体临时文件",
+            Self::Toolchain => "工具链",
+            Self::Synced => "同步目录",
+            Self::Git => "Git 仓库",
+            Self::Media => "媒体",
+            Self::Documents => "文档",
+            Self::Cache => "缓存",
+            Self::Other => "其他",
         }
     }
 }
@@ -96,15 +96,15 @@ impl Reclaim {
     /// The reason, as the "Worth a look" list says it.
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Regenerable => "regenerable",
-            Self::SyncHistory => "sync history",
-            Self::PackageStore => "package store",
-            Self::BuildOutput => "build output",
-            Self::Reinstallable => "reinstallable",
-            Self::SandboxLayers => "sandbox layers",
-            Self::Snapshots => "snapshots",
-            Self::Trash => "trash",
-            Self::Temporary => "temporary",
+            Self::Regenerable => "可重新生成",
+            Self::SyncHistory => "同步历史",
+            Self::PackageStore => "包存储",
+            Self::BuildOutput => "构建产物",
+            Self::Reinstallable => "可重装",
+            Self::SandboxLayers => "沙箱层",
+            Self::Snapshots => "快照",
+            Self::Trash => "回收站",
+            Self::Temporary => "临时文件",
         }
     }
 }

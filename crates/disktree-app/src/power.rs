@@ -33,10 +33,10 @@ impl PowerEfficiency {
 
     pub const fn name(self) -> &'static str {
         match self {
-            Self::Miser => "Miser",
-            Self::Balanced => "Balanced",
-            Self::Aggressive => "Aggressive",
-            Self::DrainMyBattery => "Drain My Battery",
+            Self::Miser => "省电",
+            Self::Balanced => "均衡",
+            Self::Aggressive => "激进",
+            Self::DrainMyBattery => "尽情耗电",
         }
     }
 
@@ -55,7 +55,7 @@ impl PowerEfficiency {
     }
 
     pub fn label(self, cpus: usize) -> String {
-        format!("{} ({})", self.name(), workers(self.threads(cpus)))
+        format!("{}（{}）", self.name(), workers(self.threads(cpus)))
     }
 
     /// A preset that would run no more workers than the one below it, on a
@@ -90,8 +90,7 @@ impl PowerEfficiency {
 }
 
 pub fn workers(count: usize) -> String {
-    let unit = if count == 1 { "worker" } else { "workers" };
-    format!("{count} {unit}")
+    format!("{count} 个线程")
 }
 
 pub fn cpu_threads() -> usize {
@@ -118,7 +117,7 @@ pub fn settings_path() -> Option<PathBuf> {
 pub fn load(path: &Path) -> io::Result<PowerEfficiency> {
     match std::fs::read_to_string(path) {
         Ok(value) => PowerEfficiency::parse(value.trim()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidData, "unknown power preset")
+            io::Error::new(io::ErrorKind::InvalidData, "未知的电源效率预设值")
         }),
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             Ok(PowerEfficiency::default())
@@ -129,7 +128,7 @@ pub fn load(path: &Path) -> io::Result<PowerEfficiency> {
 
 pub fn save(path: &Path, preset: PowerEfficiency) -> io::Result<()> {
     let parent = path.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "no settings directory")
+        io::Error::new(io::ErrorKind::InvalidInput, "没有设置目录")
     })?;
     std::fs::create_dir_all(parent)?;
     // Atomic replacement leaves the previous choice intact after a failed
@@ -158,7 +157,7 @@ mod tests {
         assert_eq!(PowerEfficiency::Balanced.threads(3), 3);
         assert_eq!(
             PowerEfficiency::DrainMyBattery.label(18),
-            "Drain My Battery (18 workers)"
+            "尽情耗电（18 个线程）"
         );
     }
 

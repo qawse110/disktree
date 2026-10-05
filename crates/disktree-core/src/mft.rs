@@ -242,7 +242,7 @@ fn is_root_directory(infos: &[Info]) -> bool {
 }
 
 pub fn cancelled() -> io::Error {
-    io::Error::new(io::ErrorKind::Interrupted, "the scan was cancelled")
+    io::Error::new(io::ErrorKind::Interrupted, "扫描已取消")
 }
 
 /// Past the file cache: the table is read once and never again, and

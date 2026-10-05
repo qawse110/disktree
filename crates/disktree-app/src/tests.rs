@@ -428,7 +428,7 @@ fn right_click_selects_the_tile_and_reveals_it(cx: &mut TestAppContext) {
     });
     assert_eq!(selected, Some(target), "the clicked tile is selected");
     assert!(
-        notice.is_some_and(|text| text.contains("no longer on disk")),
+        notice.is_some_and(|text| text.contains("已不在磁盘上")),
         "the reveal ran for it"
     );
 }
@@ -635,7 +635,7 @@ fn showing_a_tile_that_is_gone_says_so_instead(cx: &mut TestAppContext) {
     press(cx, "o");
     let notice = read(&view, cx, |app| app.notice.clone());
     let (message, _) = notice.expect("a notice");
-    assert!(message.contains("no longer on disk"), "{message}");
+    assert!(message.contains("已不在磁盘上"), "{message}");
 }
 
 #[gpui_kit::test]
@@ -778,7 +778,7 @@ fn the_review_screen_copies_the_list_as_an_agent_prompt(
         .read_from_clipboard()
         .and_then(|item| item.text())
         .expect("a prompt on the clipboard");
-    assert!(copied.contains("free up disk space"), "{copied}");
+    assert!(copied.contains("释放磁盘空间"), "{copied}");
     assert!(
         copied.contains(&format!("- {}", junk.display())),
         "{copied}"
@@ -786,7 +786,7 @@ fn the_review_screen_copies_the_list_as_an_agent_prompt(
     assert!(junk.exists(), "nothing was removed");
     let notice = read(&view, cx, |app| app.notice.clone());
     assert!(
-        notice.is_some_and(|(message, _)| message.contains("copied")),
+        notice.is_some_and(|(message, _)| message.contains("已复制")),
         "the copy is confirmed"
     );
 }
@@ -1408,7 +1408,7 @@ fn marking_a_directory_marks_everything_inside_it(cx: &mut TestAppContext) {
         )
     });
     assert_eq!(count, 1);
-    assert!(notice.is_some_and(|text| text.contains("goes with the marked")));
+    assert!(notice.is_some_and(|text| text.contains("随已标记的")));
 
     // Unmarking the directory unmarks everything.
     update(&view, cx, |app, cx| app.toggle_mark(&junk, cx));
@@ -1766,9 +1766,10 @@ fn power_efficiency_menu_saves_without_discarding_the_tree(
         app.power_settings_path = Some(config.path().to_owned());
         app.set_power_efficiency(Power::Miser, cx);
     });
-    assert!(read(&view, cx, |app| app.notice.as_ref().is_some_and(
-        |(message, _)| message.contains("could not be saved")
-    )));
+    assert!(read(&view, cx, |app| app
+        .notice
+        .as_ref()
+        .is_some_and(|(message, _)| message.contains("无法保存"))));
     update(&view, cx, Disktree::start_scan);
     assert_eq!(read(&view, cx, |app| app.scan_epoch), epoch + 1);
 }

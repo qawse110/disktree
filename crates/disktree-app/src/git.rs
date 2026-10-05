@@ -32,21 +32,21 @@ impl GitState {
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
         parts.push(match self.changed {
-            Some(0) => "clean".to_string(),
-            Some(count) => format!("{count} changed"),
-            None => "changes unknown".to_string(),
+            Some(0) => "干净".to_string(),
+            Some(count) => format!("{count} 项改动"),
+            None => "改动未知".to_string(),
         });
         parts.push(match self.stashes {
-            0 => "no stash".to_string(),
-            1 => "1 stash".to_string(),
-            count => format!("{count} stashes"),
+            0 => "无贮藏".to_string(),
+            1 => "1 个贮藏".to_string(),
+            count => format!("{count} 个贮藏"),
         });
         match self.unpushed {
             Some(0) => {}
-            Some(count) => parts.push(format!("{count} unpushed")),
-            None => parts.push("no upstream".to_string()),
+            Some(count) => parts.push(format!("{count} 个未推送提交")),
+            None => parts.push("无上游分支".to_string()),
         }
-        parts.join(", ")
+        parts.join("，")
     }
 }
 
@@ -218,25 +218,25 @@ mod tests {
             ..GitState::default()
         };
         assert!(clean.is_clean());
-        assert_eq!(clean.summary(), "clean, no stash");
+        assert_eq!(clean.summary(), "干净，无贮藏");
         let busy = GitState {
             changed: Some(3),
             stashes: 1,
             unpushed: Some(2),
         };
         assert!(!busy.is_clean());
-        assert_eq!(busy.summary(), "3 changed, 1 stash, 2 unpushed");
+        assert_eq!(busy.summary(), "3 项改动，1 个贮藏，2 个未推送提交");
         let local = GitState {
             changed: Some(0),
             ..GitState::default()
         };
-        assert_eq!(local.summary(), "clean, no stash, no upstream");
+        assert_eq!(local.summary(), "干净，无贮藏，无上游分支");
         assert!(!local.is_clean(), "unpushed history could be lost");
         let guarded = GitState {
             unpushed: Some(0),
             ..GitState::default()
         };
-        assert_eq!(guarded.summary(), "changes unknown, no stash");
+        assert_eq!(guarded.summary(), "改动未知，无贮藏");
         assert!(!guarded.is_clean(), "unknown is not clean");
     }
 

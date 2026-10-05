@@ -240,7 +240,7 @@ impl ScanHandle {
             },
         );
         if let Err(error) = worker {
-            progress.record_error(Path::new("scan worker"), &error);
+            progress.record_error(Path::new("扫描线程"), &error);
             progress.finish();
         }
 
@@ -252,9 +252,9 @@ impl ScanHandle {
         match self.result.try_recv() {
             Ok(outcome) => Some(outcome),
             Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(Err(io::Error::other(
-                "the scan worker stopped without a result",
-            ))),
+            Err(TryRecvError::Disconnected) => {
+                Some(Err(io::Error::other("扫描线程没有返回结果就停止了")))
+            }
         }
     }
 
@@ -853,7 +853,7 @@ fn scan_on_pool(
     if !root_meta.is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("{} is not a directory", root.display()),
+            format!("{} 不是目录", root.display()),
         ));
     }
     let resolved = root.canonicalize().ok();
@@ -965,7 +965,7 @@ fn scan_on_pool(
 
     let node = lock(&context.root).take();
     let node = node.ok_or_else(|| {
-        io::Error::other(format!("{} produced no tree", root.display()))
+        io::Error::other(format!("{} 没有产生任何目录树", root.display()))
     })?;
     Ok(finish_tree(node, &context.options, pool))
 }

@@ -1702,7 +1702,7 @@ fn insight_text(app: &Disktree, candidate: &Candidate) -> (String, String) {
             format!("{count} 个 worktree · 最早的已 {oldest_days} 天"),
         ),
         Finding::StaleExperiments { count } => (
-            format!("{tail} > {STALE_DAYS} days"),
+            format!("{tail} > {STALE_DAYS} 天"),
             format!("{count} 个实验长期未动"),
         ),
     }
@@ -2116,7 +2116,7 @@ fn not_counted(plan: &Plan) -> Option<String> {
 /// The way to the review screen, where the saving is: it says what is
 /// marked and what it frees, so the number that matters is the thing to
 /// press. Outlined in the highlight, so it does not compete with the filled
-/// "Mark for removal" above it.
+/// "标记删除" above it.
 fn review_button(
     app: &Disktree,
     reclaiming: u64,
@@ -3451,7 +3451,7 @@ fn help_overlay(app: &Disktree, cx: &gpui_kit::App) -> Div {
         (MODIFIER_CLICK, "标记但不移动选中项"),
         ("enter", "进入该目录，不限层级"),
         ("\u{232b} / esc", "回到上一级目录"),
-        ("alt \u{2190} / \u{2192}", "后退或前进，鼠标侧键同效"),
+        ("alt \u{2190} / \u{2192}", "返回或前进，鼠标侧键同效"),
         (
             "\u{2190} \u{2191} \u{2193} \u{2192}",
             "在同一层的图块间移动",

@@ -47,15 +47,15 @@ pub enum RemovalMode {
 impl RemovalMode {
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Permanent => "Delete permanently",
-            Self::Trash => "Move to trash",
+            Self::Permanent => "永久删除",
+            Self::Trash => "移到回收站",
         }
     }
 
     pub const fn detail(self) -> &'static str {
         match self {
-            Self::Permanent => "rm -rf: unrecoverable",
-            Self::Trash => "recoverable until the trash is emptied",
+            Self::Permanent => "rm -rf：不可恢复",
+            Self::Trash => "在回收站清空前可恢复",
         }
     }
 }
@@ -361,10 +361,10 @@ fn system_drive() -> PathBuf {
 
 /// What to use instead, said when a system tree is refused.
 #[cfg(not(windows))]
-const SYSTEM_TOOLS: &str = "remove it with the tool that installed it";
+const SYSTEM_TOOLS: &str = "请用它自己的安装工具卸载";
 
 #[cfg(windows)]
-const SYSTEM_TOOLS: &str = "use Settings, or the program's own uninstaller";
+const SYSTEM_TOOLS: &str = "请用「设置」或程序自带的卸载程序";
 
 /// The system tree the path keyed `key` is in, if any. The home directory is
 /// never system, wherever it lives.
@@ -421,10 +421,10 @@ fn refuse(
     let root_key = guard_key(root);
     let home_key = home.map(|home| home.key.as_path());
     if path.parent().is_none() {
-        return Some("the filesystem root cannot be removed".into());
+        return Some("文件系统根目录不能删除".into());
     }
     if key == root_key {
-        return Some("the scanned root cannot be removed".into());
+        return Some("扫描根目录不能删除".into());
     }
     if cfg!(windows)
         && let Some(name) = path.components().find_map(|part| match part {
@@ -435,7 +435,7 @@ fn refuse(
         })
     {
         return Some(format!(
-            "Windows would read {} as a different name, and remove that",
+            "Windows 会把 {} 读成另一个名字，并删除那个名字指向的内容",
             name.display()
         ));
     }
@@ -444,13 +444,13 @@ fn refuse(
             .and_then(|home| home.id)
             .is_some_and(|id| identity(path, false) == Some(id))
     {
-        return Some("the home directory cannot be removed".into());
+        return Some("主目录不能删除".into());
     }
     // On Linux `/home` is usually a mount point of its own and refused as
     // one; on macOS `/Users` is on the same volume as `/`, and removing it
     // would empty the home directory before failing on `/Users` itself.
     if home_key.is_some_and(|home| home.starts_with(&key)) {
-        return Some("it contains the home directory".into());
+        return Some("它包含主目录".into());
     }
     // Elevated through another account's credentials, home is that admin's,
     // and the user's own profile is just another folder; elevation opens
@@ -459,37 +459,29 @@ fn refuse(
     // Windows and not from home, whose parent could be anything. What is
     // inside a profile stays removable, as under one's own home.
     if profiles_key().is_some_and(|profiles| is_profile(path, &key, profiles)) {
-        return Some("a user profile cannot be removed".into());
+        return Some("用户配置文件不能删除".into());
     }
     // By spelling too: the Data volume's root keeps its name as a key, while
     // everything under it is keyed as under `/`.
     if !key.starts_with(&root_key) && !path.starts_with(root) {
-        return Some("outside the scanned root".into());
+        return Some("在扫描根目录之外".into());
     }
     if let Some(system) = system_tree(&key, home_key)
         && !(system == "/run"
             && on_media(&key, mounts, media)
             && fs::canonicalize(path).is_ok_and(|real| real == path))
     {
-        return Some(format!(
-            "part of the system under {system}: {SYSTEM_TOOLS}"
-        ));
+        return Some(format!("属于 {system} 下的系统目录：{SYSTEM_TOOLS}"));
     }
     if let Some(system) = system_tree_below(&key) {
-        return Some(format!(
-            "it contains {system}, which is part of the system"
-        ));
+        return Some(format!("它包含 {system}，那是系统目录的一部分"));
     }
     if mounts.contains(&key) || is_mount_point(path) {
-        return Some(
-            "a mount point: removing it would cross onto another filesystem"
-                .into(),
-        );
+        return Some("是挂载点：删除它会跨到另一个文件系统".into());
     }
     if let Some(mount) = mount_below(&key, mounts) {
         return Some(format!(
-            "{} is mounted inside it: removing it would reach into another \
-             filesystem",
+            "{} 挂载在它里面：删除它会伸进另一个文件系统",
             mount.display()
         ));
     }
@@ -543,16 +535,13 @@ fn linked(
     if let (Some(real_root), Ok(rest)) = (real_root, path.strip_prefix(root))
         && real != guard_key(&real_root.join(rest))
     {
-        return Some(format!(
-            "reached through a link: it is really {}",
-            real.display()
-        ));
+        return Some(format!("通过链接到达：实际路径是 {}", real.display()));
     }
     if home
         .and_then(|home| home.real.as_ref())
         .is_some_and(|home| home.starts_with(&real))
     {
-        return Some("it contains the home directory".into());
+        return Some("它包含主目录".into());
     }
     None
 }
@@ -889,29 +878,23 @@ impl TrashBackend {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::MacOs => "the Trash",
+            Self::MacOs => "回收站",
             Self::TrashPut => "trash-put",
             Self::Gio => "gio trash",
-            Self::XdgHome => "XDG trash",
-            Self::RecycleBin => "the Recycle Bin",
-            Self::Unavailable => "no trash tool found",
+            Self::XdgHome => "XDG 回收站",
+            Self::RecycleBin => "回收站",
+            Self::Unavailable => "未找到回收站工具",
         }
     }
 
     pub const fn detail(self) -> &'static str {
         match self {
-            Self::MacOs => "the same Trash as Finder, on the item's own disk",
-            Self::TrashPut => {
-                "uses trash-cli, the same trash as your file manager"
-            }
-            Self::Gio => "uses GLib, the same trash as your file manager",
-            Self::XdgHome => {
-                "moves into ~/.local/share/Trash on the same volume"
-            }
-            Self::RecycleBin => "the same Recycle Bin as File Explorer",
-            Self::Unavailable => {
-                "install trash-cli or keep deleting permanently"
-            }
+            Self::MacOs => "与访达相同的回收站，位于该项所在磁盘",
+            Self::TrashPut => "使用 trash-cli，与文件管理器相同的回收站",
+            Self::Gio => "使用 GLib，与文件管理器相同的回收站",
+            Self::XdgHome => "移动到同一卷的 ~/.local/share/Trash",
+            Self::RecycleBin => "与文件资源管理器相同的回收站",
+            Self::Unavailable => "安装 trash-cli，或继续永久删除",
         }
     }
 }
@@ -1030,9 +1013,7 @@ pub fn spawn(plan: Plan, mode: RemovalMode) -> RemovalHandle {
         let _ = sender.send(RemovalEvent::Item {
             path: PathBuf::new(),
             bytes: 0,
-            outcome: Err(format!(
-                "could not start the removal worker: {error}"
-            )),
+            outcome: Err(format!("无法启动删除线程：{error}")),
         });
     }
 
@@ -1136,12 +1117,11 @@ fn run(
 /// mount-point rules of [`refuse`], asked again at removal time.
 fn mounted(path: &Path, mounts: &[PathBuf]) -> Option<String> {
     if is_mount_point(path) {
-        return Some("it became a mount point since it was marked".into());
+        return Some("标记之后它变成了挂载点".into());
     }
     mount_below(&guard_key(path), mounts).map(|mount| {
         format!(
-            "{} is mounted inside it: removing it would reach into another \
-             filesystem",
+            "{} 挂载在它里面：删除它会伸进另一个文件系统",
             mount.display()
         )
     })
@@ -1194,10 +1174,7 @@ fn open_parent<'a>(
     use rustix::io::Errno;
 
     let not_marked = || {
-        io::Error::other(format!(
-            "{} is not an absolute, normalized path",
-            path.display()
-        ))
+        io::Error::other(format!("{} 不是规范化后的绝对路径", path.display()))
     };
     let name = path.file_name().ok_or_else(not_marked)?;
     let below = path
@@ -1205,7 +1182,7 @@ fn open_parent<'a>(
         .and_then(|parent| parent.strip_prefix(root).ok())
         .ok_or_else(|| {
             io::Error::other(format!(
-                "{} is not inside the scanned root {}",
+                "{} 不在扫描根目录 {} 内",
                 path.display(),
                 root.display()
             ))
@@ -1216,8 +1193,8 @@ fn open_parent<'a>(
             Component::Normal(part) => {
                 dir = open_step(&dir, part).map_err(|error| match error {
                     Errno::LOOP | Errno::NOTDIR => io::Error::other(format!(
-                        "{} changed since the scan: {} is no longer a \
-                         directory, so nothing was removed",
+                        "{} 在扫描后发生了变化：{} 不再是目录，\
+                         因此未删除任何内容",
                         path.display(),
                         part.display()
                     )),
@@ -1383,8 +1360,8 @@ fn remove_contents(
         let child_path = path.join(OsStr::from_bytes(name.to_bytes()));
         if !top.contains(&Volume::of(&child)?) {
             return Err(io::Error::other(format!(
-                "stopped at {}: another filesystem is mounted there, and \
-                 nothing on it was touched",
+                "在 {} 处停止：那里挂载了另一个文件系统，\
+                 其中的内容都未被触碰",
                 child_path.display()
             )));
         }
@@ -1414,9 +1391,9 @@ pub fn move_to_trash(path: &Path, backend: TrashBackend) -> io::Result<()> {
         TrashBackend::XdgHome => trash_via_xdg(path),
         TrashBackend::MacOs => trash_via_macos(path),
         TrashBackend::RecycleBin => recycle(path),
-        TrashBackend::Unavailable => Err(io::Error::other(
-            "no trash tool is installed; use permanent deletion instead",
-        )),
+        TrashBackend::Unavailable => {
+            Err(io::Error::other("未安装回收站工具；请改用永久删除"))
+        }
     }
 }
 
@@ -1432,8 +1409,7 @@ fn trash_via_macos(path: &Path) -> io::Result<()> {
 
     if path.to_str().is_none() {
         return Err(io::Error::other(
-            "the name is not UTF-8, which the Trash cannot take; \
-             use permanent deletion",
+            "名称不是 UTF-8，回收站无法接收；请改用永久删除",
         ));
     }
     let mut context = trash::TrashContext::default();
@@ -1442,15 +1418,15 @@ fn trash_via_macos(path: &Path) -> io::Result<()> {
     context.set_delete_method(DeleteMethod::NsFileManager);
     context.delete(path).map_err(|error| {
         io::Error::other(format!(
-            "could not move to the Trash ({error}); network and read-only \
-             disks have none, so use permanent deletion there"
+            "无法移动到回收站（{error}）；网络磁盘和只读磁盘没有回收站，\
+             请在那里使用永久删除"
         ))
     })
 }
 
 #[cfg(not(target_os = "macos"))]
 fn trash_via_macos(_path: &Path) -> io::Result<()> {
-    Err(io::Error::other("the macOS Trash only exists on macOS"))
+    Err(io::Error::other("macOS 回收站只存在于 macOS 上"))
 }
 
 /// Hand `path` to the Recycle Bin. `trash` asks the shell to warn before it
@@ -1463,7 +1439,7 @@ fn recycle(path: &Path) -> io::Result<()> {
 
 #[cfg(not(windows))]
 fn recycle(_path: &Path) -> io::Result<()> {
-    Err(io::Error::other("the Recycle Bin is only on Windows"))
+    Err(io::Error::other("回收站只在 Windows 上"))
 }
 
 /// Run one trash tool on one path.
@@ -1482,7 +1458,7 @@ fn run_tool(program: &Path, arguments: &[&str], path: &Path) -> io::Result<()> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(io::Error::other(format!(
-            "{} failed: {}",
+            "{} 失败：{}",
             program.display(),
             stderr.trim()
         )))
@@ -1495,9 +1471,8 @@ fn run_tool(program: &Path, arguments: &[&str], path: &Path) -> io::Result<()> {
 /// Only same-volume paths can be trashed this way: the specification forbids
 /// copying a file into a trash directory on another filesystem.
 fn trash_via_xdg(path: &Path) -> io::Result<()> {
-    let trash = home_trash_dir().ok_or_else(|| {
-        io::Error::other("neither XDG_DATA_HOME nor HOME is set")
-    })?;
+    let trash = home_trash_dir()
+        .ok_or_else(|| io::Error::other("XDG_DATA_HOME 和 HOME 都没有设置"))?;
     trash_into(path, &trash)
 }
 
@@ -1515,15 +1490,13 @@ pub fn trash_into(path: &Path, trash: &Path) -> io::Result<()> {
     let trash_meta = fs::metadata(&files)?;
     if source.dev() != trash_meta.dev() {
         return Err(io::Error::other(
-            "on a different filesystem than the trash; use permanent deletion",
+            "与回收站不在同一个文件系统上；请改用永久删除",
         ));
     }
 
     let name = path
         .file_name()
-        .ok_or_else(|| {
-            io::Error::other("refusing to trash a path without a name")
-        })?
+        .ok_or_else(|| io::Error::other("拒绝把没有名称的路径移到回收站"))?
         .to_string_lossy()
         .into_owned();
     let (candidate, trashed_name) = unique_name(&files, &name);
@@ -1545,9 +1518,7 @@ pub fn trash_into(path: &Path, trash: &Path) -> io::Result<()> {
 
 #[cfg(not(unix))]
 pub fn trash_into(_path: &Path, _trash: &Path) -> io::Result<()> {
-    Err(io::Error::other(
-        "the XDG trash is only implemented on Unix",
-    ))
+    Err(io::Error::other("XDG 回收站只在 Unix 上实现"))
 }
 
 /// `name`, or `name.1`, `name.2`, … until the name is free in `dir`.
@@ -1847,7 +1818,7 @@ mod tests {
         assert!(
             plan.blocked
                 .iter()
-                .any(|blocked| blocked.reason.contains("home directory"))
+                .any(|blocked| blocked.reason.contains("主目录"))
                 || home.is_none()
         );
     }
@@ -1861,7 +1832,7 @@ mod tests {
         let reason =
             refuse(Path::new("/home"), Path::new("/"), Some(&home), &[], &[]);
         assert!(
-            reason.is_some_and(|reason| reason.contains("home directory")),
+            reason.is_some_and(|reason| reason.contains("主目录")),
             "the home directory is inside it"
         );
         assert_eq!(
@@ -1882,7 +1853,7 @@ mod tests {
         let temp = tree();
         let plan = plan(&[target(Path::new("/etc/passwd"), 1)], temp.path());
         assert!(plan.is_empty());
-        assert_eq!(plan.blocked[0].reason, "outside the scanned root");
+        assert_eq!(plan.blocked[0].reason, "在扫描根目录之外");
     }
 
     #[test]
@@ -1932,7 +1903,7 @@ mod tests {
             &[],
         )
         .expect("refused");
-        assert!(reason.contains("home directory"), "{reason}");
+        assert!(reason.contains("主目录"), "{reason}");
         assert!(
             refuse(
                 Path::new("/Users/tobi/src"),
@@ -1992,7 +1963,7 @@ mod tests {
         );
         let reason =
             refuse(&root.join("a"), root, None, &mounts, &[]).expect("refused");
-        assert!(reason.contains("mounted inside"), "{reason}");
+        assert!(reason.contains("挂载在它里面"), "{reason}");
         assert_eq!(
             refuse(&root.join("a/one.bin"), root, None, &mounts, &[]),
             None
@@ -2190,7 +2161,7 @@ mod tests {
 
         let error =
             remove_permanently(&marked, temp.path()).expect_err("refused");
-        assert!(error.to_string().contains("changed since"), "{error}");
+        assert!(error.to_string().contains("发生了变化"), "{error}");
         assert!(keep.path().join("x/precious.bin").exists());
     }
 
@@ -2207,7 +2178,7 @@ mod tests {
         );
         assert!(plan.is_empty());
         assert!(
-            plan.blocked[0].reason.contains("through a link"),
+            plan.blocked[0].reason.contains("通过链接到达"),
             "{}",
             plan.blocked[0].reason
         );
@@ -2241,7 +2212,7 @@ mod tests {
             thread::sleep(std::time::Duration::from_millis(1));
         }
         let error = outcome.expect("an item").expect_err("refused");
-        assert!(error.contains("through a link"), "{error}");
+        assert!(error.contains("通过链接到达"), "{error}");
         assert!(keep.path().join("x/precious.bin").exists());
     }
 
@@ -2258,7 +2229,7 @@ mod tests {
         let reason =
             linked(&root.join("data"), &root, Some(&root), Some(&home))
                 .expect("refused");
-        assert!(reason.contains("home directory"), "{reason}");
+        assert!(reason.contains("主目录"), "{reason}");
         assert_eq!(
             linked(&root.join("other"), &root, Some(&root), Some(&home)),
             None
@@ -2306,7 +2277,7 @@ mod tests {
         let root = temp.path();
         let mounts = vec![guard_key(&root.join("a/b"))];
         let reason = mounted(&root.join("a"), &mounts).expect("caught");
-        assert!(reason.contains("mounted inside"), "{reason}");
+        assert!(reason.contains("挂载在它里面"), "{reason}");
         assert_eq!(mounted(&root.join("other"), &mounts), None);
     }
 
@@ -2585,7 +2556,7 @@ mod tests {
             .expect("profiles folder")
             .join("Public");
         let reason = refuse(&public, &system_drive(), None, &[], &[]);
-        assert!(reason.is_some_and(|reason| reason.contains("profile")));
+        assert!(reason.is_some_and(|reason| reason.contains("配置文件")));
     }
 
     #[test]

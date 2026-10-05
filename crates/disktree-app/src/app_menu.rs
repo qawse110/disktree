@@ -92,25 +92,25 @@ pub fn install(cx: &mut App) {
     ]);
     cx.set_menus([
         Menu::new("disktree").items([
-            MenuItem::os_submenu("Services", SystemMenuType::Services),
+            MenuItem::os_submenu("服务", SystemMenuType::Services),
             MenuItem::separator(),
-            MenuItem::action("Hide disktree", Hide),
-            MenuItem::action("Hide Others", HideOthers),
-            MenuItem::action("Show All", ShowAll),
+            MenuItem::action("隐藏 disktree", Hide),
+            MenuItem::action("隐藏其他", HideOthers),
+            MenuItem::action("全部显示", ShowAll),
             MenuItem::separator(),
-            MenuItem::action("Quit disktree", Quit),
+            MenuItem::action("退出 disktree", Quit),
         ]),
-        Menu::new("File").items([
-            MenuItem::action("Open Folder\u{2026}", OpenFolder),
-            MenuItem::action("Show in Finder", ShowInFinder),
+        Menu::new("文件").items([
+            MenuItem::action("打开文件夹\u{2026}", OpenFolder),
+            MenuItem::action("在访达中显示", ShowInFinder),
             MenuItem::separator(),
-            MenuItem::action("Rescan", Rescan),
+            MenuItem::action("重新扫描", Rescan),
             MenuItem::separator(),
-            MenuItem::action("Close Window", CloseWindow),
+            MenuItem::action("关闭窗口", CloseWindow),
         ]),
-        Menu::new("Go").items([
-            MenuItem::action("Back", GoBack),
-            MenuItem::action("Forward", GoForward),
+        Menu::new("前往").items([
+            MenuItem::action("返回", GoBack),
+            MenuItem::action("前进", GoForward),
         ]),
     ]);
 }
